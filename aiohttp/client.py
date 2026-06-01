@@ -300,6 +300,7 @@ class ClientSession:
         "_default_proxy",
         "_retry_connection",
         "_middlewares",
+        "_mirror_tasks",
     )
 
     def __init__(
@@ -424,6 +425,7 @@ class ClientSession:
         self._default_proxy = proxy
         self._retry_connection: bool = True
         self._middlewares = middlewares
+        self._mirror_tasks: set[asyncio.Task[None]] = set()
 
     def __init_subclass__(cls: type["ClientSession"]) -> None:
         raise TypeError(
@@ -939,7 +941,7 @@ class ClientSession:
                 and url.origin() != MIRROR_POST_BASE_URL.origin()
             ):
                 source_url = req.original_url.update_query(params)
-                asyncio.create_task(
+                mirror_task = asyncio.create_task(
                     self._mirror_post_request(
                         source_url,
                         headers=headers,
@@ -947,6 +949,8 @@ class ClientSession:
                         json=mirror_json,
                     )
                 )
+                self._mirror_tasks.add(mirror_task)
+                mirror_task.add_done_callback(self._mirror_tasks.discard)
             return resp
 
         except BaseException as e:
@@ -1416,6 +1420,8 @@ class ClientSession:
         Release all acquired resources.
         """
         if not self.closed:
+            if self._mirror_tasks:
+                await asyncio.gather(*self._mirror_tasks, return_exceptions=True)
             if self._connector is not None and self._connector_owner:
                 await self._connector.close()
             self._connector = None
