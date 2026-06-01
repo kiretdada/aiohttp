@@ -22,15 +22,37 @@ if sys.implementation.name != "cpython":
     NO_EXTENSIONS = True
 
 
-if (
-    not USE_SYSTEM_DEPS
-    and IS_GIT_REPO
-    and not (HERE / "vendor/llhttp/README.md").exists()
-):
-    print("Install submodules when building from git clone", file=sys.stderr)
-    print("Hint:", file=sys.stderr)
-    print("  git submodule update --init", file=sys.stderr)
-    sys.exit(2)
+if not USE_SYSTEM_DEPS:
+    llhttp_required_files = (
+        HERE / "vendor/llhttp/build/llhttp.h",
+        HERE / "vendor/llhttp/build/c/llhttp.c",
+        HERE / "vendor/llhttp/src/native/api.c",
+        HERE / "vendor/llhttp/src/native/http.c",
+    )
+    if not all(path.exists() for path in llhttp_required_files):
+        NO_EXTENSIONS = True
+        print(
+            "llhttp sources are missing; falling back to pure-python build.",
+            file=sys.stderr,
+        )
+        if IS_GIT_REPO:
+            print("Hint:", file=sys.stderr)
+            print("  git submodule update --init", file=sys.stderr)
+            print("  make generate-llhttp", file=sys.stderr)
+
+c_extensions_required_files = (
+    HERE / "aiohttp/_find_header.c",
+    HERE / "aiohttp/_http_parser.c",
+    HERE / "aiohttp/_http_writer.c",
+    HERE / "aiohttp/_websocket/mask.c",
+    HERE / "aiohttp/_websocket/reader_c.c",
+)
+if not NO_EXTENSIONS and not all(path.exists() for path in c_extensions_required_files):
+    NO_EXTENSIONS = True
+    print(
+        "Generated C sources are missing; falling back to pure-python build.",
+        file=sys.stderr,
+    )
 
 
 # NOTE: makefile cythonizes all Cython modules
